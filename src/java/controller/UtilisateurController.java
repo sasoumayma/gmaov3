@@ -3,6 +3,7 @@ package controller;
 import bean.Utilisateur;
 import controller.util.JsfUtil;
 import controller.util.JsfUtil.PersistAction;
+import controller.util.SessionUtil;
 import service.UtilisateurFacade;
 
 import java.io.Serializable;
@@ -14,10 +15,12 @@ import javax.ejb.EJB;
 import javax.ejb.EJBException;
 import javax.inject.Named;
 import javax.enterprise.context.SessionScoped;
+import javax.faces.application.FacesMessage;
 import javax.faces.component.UIComponent;
 import javax.faces.context.FacesContext;
 import javax.faces.convert.Converter;
 import javax.faces.convert.FacesConverter;
+import org.primefaces.context.RequestContext;
 
 @Named("utilisateurController")
 @SessionScoped
@@ -27,11 +30,26 @@ public class UtilisateurController implements Serializable {
     private service.UtilisateurFacade ejbFacade;
     private List<Utilisateur> items = null;
     private Utilisateur selected;
-
+    
+    //se connecter
+    public String seConnnecter() {
+        int res = ejbFacade.seConnnecter(getSelected());
+        if (res > 0) {
+            return "inscription";
+        } else {
+            JsfUtil.addErrorMessage("EERROR CONX");
+            return null;
+        }
+    }
+    //se connecter
+    
     public UtilisateurController() {
     }
 
     public Utilisateur getSelected() {
+        if(selected == null){
+            selected = new Utilisateur();
+        }
         return selected;
     }
 
@@ -85,9 +103,12 @@ public class UtilisateurController implements Serializable {
         if (selected != null) {
             setEmbeddableKeys();
             try {
-                if (persistAction != PersistAction.DELETE) {
+                if (persistAction == PersistAction.CREATE) {
+                    getFacade().create(selected);
+                } else  if (persistAction == PersistAction.UPDATE) {
                     getFacade().edit(selected);
-                } else {
+                } 
+                else {
                     getFacade().remove(selected);
                 }
                 JsfUtil.addSuccessMessage(successMessage);
@@ -108,7 +129,7 @@ public class UtilisateurController implements Serializable {
             }
         }
     }
-
+    
     public Utilisateur getUtilisateur(java.lang.String id) {
         return getFacade().find(id);
     }
@@ -161,5 +182,61 @@ public class UtilisateurController implements Serializable {
         }
 
     }
+/*Connect Methode*/
+    public String isConnecte() {
+        //Utilisateur clone = ejbFacade.clone(selected);
+        System.out.println("hana dkhelet");
+        int res = ejbFacade.seConnnecter(selected);
+        System.out.println("haa resultat ==> "+res);
+        switch (res) {
+            // Seccessful
+            case 1:
+                JsfUtil.addSuccessMessage("Success");
+//                SessionUtil.setAttribute("connectionUtilisateur", clone);
+                SessionUtil.registerUtilisateur(selected);
+                return "/menu/menu?faces-redirect=true";
+            // utilisateur blocked
+            case -2:
+                JsfUtil.addErrorMessage("this utilisateur is blocked");
+                System.out.println("this utilisateur is blocked");
+                return null;
 
+            // Wrong Password
+            case -3:
+                JsfUtil.addErrorMessage("Wrong Password");
+                System.out.println("Wrong Password");
+                return null;
+
+            // Utilisateur doesn't exist
+            case -4:
+                JsfUtil.addErrorMessage("Utilisateur does not exist");
+                System.out.println("Utilisateur does not exist");
+                return null;
+
+            // You have not type any login
+            case -5:
+                JsfUtil.addErrorMessage("Please type login");
+                System.out.println("Please type login");
+                return null;
+
+            default:
+                return null;
+
+        }
+    }
+    /*Connect Methode*/
+    
+    public void showMessage(String msg) {
+        RequestContext.getCurrentInstance().showMessageInDialog(new FacesMessage(FacesMessage.SEVERITY_INFO, "Error", " " + msg + ""));
+    }
+    
+    
+    
+    
+    
+    public String deconnecte() {
+       SessionUtil.deconnectUser("nselected");
+       return "/utilisateur/connexion.xhtml";
+
+    }
 }
